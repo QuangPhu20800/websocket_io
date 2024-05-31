@@ -6,59 +6,91 @@
     <div class="chat-window" id="chat-window">
       <ul id="message-list"></ul>
     </div>
-    <div class="chat-input">
+    <div class="join-input">
       <input
+        v-model="name"
+        type="text"
+        id="name-input"
+        placeholder="Name"
+        autocomplete="off"
+      />
+      <button @click="joinChat" id="join-button">Join Chat</button>
+    </div>
+    <div style="display: flex">
+      <input
+        v-model="message"
         type="text"
         id="message-input"
         placeholder="Type a message..."
         autocomplete="off"
       />
-      <button @click="sendMessage('hello')" id="send-button">Send</button>
+      <input
+        v-model="receiver"
+        type="text"
+        id="message-input"
+        placeholder="receiver"
+        autocomplete="off"
+      />
+      
     </div>
+    <button @click="sendMessagePublic" id="send-button">Send Public</button>
+    <button @click="sendMessagePrivate" id="send-button">Send Private</button>
   </div>
 </template>
 
 <script>
-import {io} from "socket.io-client";
 export default {
   name: "ChatRealTime",
   data() {
     return {
-      socket: null,
+      name: "",
+      receiver: "",
+      message: "",
     };
   },
-  mounted() {
-    this.initSocketIO();
+
+  props: {
+    wsConnector: {
+      type: Object,
+      default: null,
+    },
   },
+
   methods: {
-    initSocketIO() {
-      const socketUrl =
-        "https://g9a13vfpg6.execute-api.us-east-1.amazonaws.com/production/@connections";
-      this.socket = io(socketUrl);
-
-      this.socket.on("connect", () => {
-        console.log("Socket.IO kết nối thành công");
-      });
-
-      this.socket.on("message", (message) => {
-        console.log("Nhận được tin nhắn từ server:", message);
-      });
-
-      this.socket.on("disconnect", () => {
-        console.log("Socket.IO đã ngắt kết nối");
-      });
-
-      this.socket.on("error", (error) => {
-        console.error("Có lỗi xảy ra với Socket.IO:", error);
-      });
+    joinChat() {
+      this.wsConnector.joinChat(this.name);
     },
-    sendMessage(message) {
-      if (this.socket && this.socket.connected) {
-        this.socket.send(message);
-      } else {
-        console.error("Kết nối Socket.IO chưa mở hoặc đã đóng");
+
+    sendMessagePublic() {
+      this.wsConnector.sendMessagePublic(this.message);
+    },
+
+    sendMessagePrivate() {
+      this.wsConnector.sendMessagePrivate(this.message, this.receiver);
+    },
+
+    appendMessage(message) {
+      const messageList = document.getElementById("message-list");
+      const messageElement = document.createElement("li");
+      messageElement.textContent = message;
+      messageList.appendChild(messageElement);
+    },
+  },
+
+  mounted() {
+    window.addEventListener('messageReceived', (event) => {
+      const parseData = JSON.parse(event.detail);
+      if (parseData.systemMessage) {
+        console.log(parseData.systemMessage);
+        this.appendMessage(parseData.systemMessage);
+      } else if (parseData.publicMessage) {
+        console.log(parseData.publicMessage);
+        this.appendMessage(parseData.publicMessage);
+      } else if (parseData.privateMessage) {
+        console.log(parseData.privateMessage);
+        this.appendMessage(parseData.privateMessage);
       }
-    },
+    });
   },
 };
 </script>
@@ -108,10 +140,21 @@ body {
   display: flex;
   border-top: 1px solid #ccc;
 }
+
+.join-input {
+  display: flex;
+  border-top: 1px solid #ccc;
+}
 #message-input {
   flex: 1;
   padding: 10px;
-  border: none;
+
+  border-radius: 0;
+  outline: none;
+}
+#name-input {
+  flex: 1;
+  padding: 10px;
   border-radius: 0;
   outline: none;
 }
@@ -122,7 +165,19 @@ body {
   padding: 10px;
   cursor: pointer;
 }
+
+#join-button {
+  background-color: #4caf50;
+  color: white;
+  border: none;
+  padding: 10px;
+  cursor: pointer;
+}
 #send-button:hover {
+  background-color: #45a049;
+}
+
+#join-button:hover {
   background-color: #45a049;
 }
 </style>
